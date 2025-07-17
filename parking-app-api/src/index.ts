@@ -28,7 +28,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Middleware
 app.use('*', cors({
-	origin: ['http://localhost:3000', 'https://your-frontend-domain.com'],
+	origin: ['http://localhost:3000', 'https://parking-app-tenant.snapsuite.workers.dev'],
 	allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 	allowHeaders: ['Content-Type', 'Authorization'],
 	credentials: true,
