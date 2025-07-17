@@ -291,3 +291,25 @@ interface PlateLookupResult {
 - Environment-based configuration
 - Database migration scripts
 - Monitoring and logging setup
+
+## ⚠️ IMPORTANT: Wrangler Development Setup
+**Critical Issue Resolution**: When running `wrangler dev`, if you encounter "Missing entry-point to Worker script" errors, use the following command from the `parking-app-api` directory:
+
+```bash
+wrangler dev --config /Users/dwainbrowne/Documents/_PROJECTS/ai-projects/parking-app-datastore/parking-app-api/wrangler.json
+```
+
+**Root Cause**: Wrangler sometimes fails to locate configuration files when running from certain working directories or with specific terminal sessions. Using the absolute path to the config file resolves this issue.
+
+**Alternative Solutions**:
+1. Use absolute path to config file (recommended)
+2. Ensure you're in the correct project directory
+3. Remove duplicate config files (keep only `wrangler.json`, not `wrangler.jsonc`)
+4. Upgrade to latest Wrangler version: `npm update wrangler`
+
+**Expected Success Output**:
+```
+✅ Your Worker has access to the following bindings:
+   env.DB (parking-permits-db)      D1 Database      local
+✅ Ready on http://localhost:8787
+```
