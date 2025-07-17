@@ -1,0 +1,360 @@
+# Test file for Parking Enforcement API endpoints
+# Run these tests using the REST Client extension in VS Code
+
+@baseUrl = http://localhost:8787
+@contentType = application/json
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ===== ENFORCEMENT OFFICER MANAGEMENT =====
+
+### Create Enforcement Officer
+POST {{baseUrl}}/api/enforcement/officers
+Content-Type: {{contentType}}
+
+{
+  "badge_number": "TEST001",
+  "first_name": "Test",
+  "last_name": "Officer",
+  "email": "test.officer@enforcement.gov",
+  "phone": "555-0001"
+}
+
+### ===== LICENSE PLATE LOOKUP =====
+
+### Enhanced License Plate Lookup (for enforcement)
+GET {{baseUrl}}/api/enforcement/license-plates/ABC123?state=CA&officer_id=officer-001
+
+### License Plate Lookup - Unknown Vehicle
+GET {{baseUrl}}/api/enforcement/license-plates/UNKNOWN99?state=CA&officer_id=officer-001
+
+### Standard License Plate Lookup (for tenants/admin)
+GET {{baseUrl}}/api/license-plates/ABC123?state=CA
+
+### ===== TICKET MANAGEMENT =====
+
+### Issue Parking Ticket
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "TESTPLATE",
+  "state_province": "CA",
+  "issued_by": "officer-001",
+  "violation_type": "No Permit",
+  "violation_reason": "Vehicle parked without valid permit",
+  "location": "Test Parking Area",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437,
+  "fine_amount": 75.00,
+  "evidence_photo_urls": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
+  "notes": "Vehicle clearly visible from street"
+}
+
+### Get Tickets by Officer
+GET {{baseUrl}}/api/enforcement/tickets?officer_id=officer-001
+
+### Get Tickets by Date
+GET {{baseUrl}}/api/enforcement/tickets?date=2025-01-17
+
+### Get Tickets by Status
+GET {{baseUrl}}/api/enforcement/tickets?status=issued
+
+### Get Tickets for License Plate
+GET {{baseUrl}}/api/enforcement/tickets?license_plate=TESTPLATE
+
+### Void a Ticket (replace with actual ticket ID)
+PUT {{baseUrl}}/api/enforcement/tickets/violation-001/void
+Content-Type: {{contentType}}
+
+{
+  "voided_reason": "Vehicle owner provided valid permit after issuance"
+}
+
+### ===== WARNING MANAGEMENT =====
+
+### Issue Parking Warning
+POST {{baseUrl}}/api/enforcement/warnings
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "ABC123",
+  "state_province": "CA",
+  "issued_by": "officer-001",
+  "warning_type": "Permit Display",
+  "warning_reason": "Permit not clearly visible on dashboard",
+  "location": "Building A Parking",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437,
+  "notes": "Permit was found in glove compartment"
+}
+
+### Get Warnings by Officer
+GET {{baseUrl}}/api/enforcement/warnings?officer_id=officer-001
+
+### Get Warnings by Date
+GET {{baseUrl}}/api/enforcement/warnings?date=2025-01-17
+
+### Get Warnings for License Plate
+GET {{baseUrl}}/api/enforcement/warnings?license_plate=ABC123
+
+### ===== ACTIVITY LOGGING =====
+
+### Log Enforcement Activity - Scan
+POST {{baseUrl}}/api/enforcement/activities
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "activity_type": "scan",
+  "license_plate": "ABC123",
+  "state_province": "CA",
+  "location": "Building A Parking",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437,
+  "result": "valid",
+  "notes": "Permit verified and valid"
+}
+
+### Log Enforcement Activity - Patrol
+POST {{baseUrl}}/api/enforcement/activities
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "activity_type": "patrol",
+  "location": "Main Street Area",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437,
+  "result": "patrol_completed",
+  "notes": "Routine patrol of main parking areas"
+}
+
+### Get Activities by Officer
+GET {{baseUrl}}/api/enforcement/activities?officer_id=officer-001
+
+### Get Activities by Date
+GET {{baseUrl}}/api/enforcement/activities?date=2025-01-17
+
+### Get Activities by Type
+GET {{baseUrl}}/api/enforcement/activities?activity_type=scan
+
+### Get Activity Summary for Officer - Today
+GET {{baseUrl}}/api/enforcement/activities/summary?officer_id=officer-001&period=today
+
+### Get Activity Summary for Officer - Week
+GET {{baseUrl}}/api/enforcement/activities/summary?officer_id=officer-001&period=week
+
+### Get Activity Summary for Officer - Month
+GET {{baseUrl}}/api/enforcement/activities/summary?officer_id=officer-001&period=month
+
+### ===== SHIFT MANAGEMENT =====
+
+### Start Shift
+POST {{baseUrl}}/api/enforcement/shifts/start
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "location": "Main Station",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437
+}
+
+### Get Current Shift
+GET {{baseUrl}}/api/enforcement/shifts/current?officer_id=officer-001
+
+### End Shift
+POST {{baseUrl}}/api/enforcement/shifts/end
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "summary": "Completed routine patrol. Issued 3 tickets and 1 warning. No major incidents.",
+  "incidents": ["Minor dispute with vehicle owner regarding permit validity"],
+  "patrol_areas": ["Building A Parking", "Building B Parking", "Main Street Area", "Visitor Parking"],
+  "location": "Main Station",
+  "gps_latitude": 34.0522,
+  "gps_longitude": -118.2437
+}
+
+### Get Shift Reports by Officer
+GET {{baseUrl}}/api/enforcement/shifts/reports?officer_id=officer-001
+
+### Get Shift Reports by Date
+GET {{baseUrl}}/api/enforcement/shifts/reports?date=2025-01-17
+
+### Get Shift Reports by Date Range
+GET {{baseUrl}}/api/enforcement/shifts/reports?start_date=2025-01-15&end_date=2025-01-17
+
+### ===== OFFLINE SYNC =====
+
+### Queue Offline Action - Ticket
+POST {{baseUrl}}/api/enforcement/sync/queue
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "action_type": "ticket",
+  "action_data": {
+    "id": "offline-ticket-001",
+    "ticket_number": "TK-20250117-00001",
+    "license_plate": "OFFLINE01",
+    "state_province": "CA",
+    "issued_by": "officer-001",
+    "violation_type": "No Permit",
+    "violation_reason": "Vehicle parked without valid permit - offline issuance",
+    "location": "Remote Parking Area",
+    "fine_amount": 75.00,
+    "notes": "Issued while offline"
+  },
+  "performed_at": "2025-01-17T14:30:00.000Z"
+}
+
+### Queue Offline Action - Warning
+POST {{baseUrl}}/api/enforcement/sync/queue
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "action_type": "warning",
+  "action_data": {
+    "id": "offline-warning-001",
+    "warning_number": "WN-20250117-00001",
+    "license_plate": "OFFLINE02",
+    "state_province": "CA",
+    "issued_by": "officer-001",
+    "warning_type": "Permit Display",
+    "warning_reason": "Permit not visible - offline warning",
+    "location": "Remote Area",
+    "notes": "Issued while offline"
+  },
+  "performed_at": "2025-01-17T14:35:00.000Z"
+}
+
+### Get Sync Status
+GET {{baseUrl}}/api/enforcement/sync/status?officer_id=officer-001
+
+### Process Queued Actions
+POST {{baseUrl}}/api/enforcement/sync/process
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001"
+}
+
+### ===== BUSINESS LOGIC TESTS =====
+
+### Test Grace Period Logic - Should return grace_period status
+GET {{baseUrl}}/api/enforcement/license-plates/ABC123?state=CA&officer_id=officer-001
+
+### Test Repeat Offender Detection - License plate with 3+ violations
+GET {{baseUrl}}/api/enforcement/license-plates/REPEAT99?state=CA&officer_id=officer-001
+
+### Test Duplicate Ticket Prevention - Try to issue second ticket within 1 hour
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "TESTPLATE",
+  "state_province": "CA",
+  "issued_by": "officer-001",
+  "violation_type": "No Permit",
+  "violation_reason": "Duplicate test - should be rejected",
+  "location": "Test Area"
+}
+
+### ===== ERROR HANDLING TESTS =====
+
+### Test Invalid License Plate Format
+GET {{baseUrl}}/api/enforcement/license-plates/TOOLONGPLATE123?state=CA&officer_id=officer-001
+
+### Test Invalid GPS Coordinates
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "TESTGPS",
+  "state_province": "CA",
+  "issued_by": "officer-001",
+  "violation_type": "No Permit",
+  "violation_reason": "Testing invalid GPS",
+  "gps_latitude": 91.0,
+  "gps_longitude": -181.0
+}
+
+### Test Missing Required Fields
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "INCOMPLETE",
+  "state_province": "CA"
+}
+
+### Test Nonexistent Officer
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "TESTBAD",
+  "state_province": "CA",
+  "issued_by": "nonexistent-officer",
+  "violation_type": "No Permit",
+  "violation_reason": "Testing bad officer ID"
+}
+
+### ===== INTEGRATION TESTS =====
+
+### Create Complete Enforcement Workflow
+# 1. Start shift
+# 2. Scan license plate
+# 3. Issue ticket if violation found
+# 4. Log patrol activity
+# 5. End shift
+
+### Step 1: Start Shift
+POST {{baseUrl}}/api/enforcement/shifts/start
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "location": "Integration Test Area"
+}
+
+### Step 2: Scan License Plate
+GET {{baseUrl}}/api/enforcement/license-plates/WORKFLOW01?state=CA&officer_id=officer-001
+
+### Step 3: Issue Ticket (if no permit found)
+POST {{baseUrl}}/api/enforcement/tickets
+Content-Type: {{contentType}}
+
+{
+  "license_plate": "WORKFLOW01",
+  "state_province": "CA",
+  "issued_by": "officer-001",
+  "violation_type": "No Permit",
+  "violation_reason": "Integration test violation",
+  "location": "Integration Test Area"
+}
+
+### Step 4: Log Patrol
+POST {{baseUrl}}/api/enforcement/activities
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "activity_type": "patrol",
+  "location": "Integration Test Area",
+  "result": "patrol_completed"
+}
+
+### Step 5: End Shift
+POST {{baseUrl}}/api/enforcement/shifts/end
+Content-Type: {{contentType}}
+
+{
+  "officer_id": "officer-001",
+  "summary": "Integration test shift completed successfully"
+}

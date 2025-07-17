@@ -288,3 +288,206 @@ export interface LicensePlateLookupResult {
   pending_requests: ActivePermitRequestView[];
   permit_history: Permit[];
 }
+
+// =====================================================
+// ENFORCEMENT TYPES
+// =====================================================
+
+export interface EnforcementOfficer {
+  id: string;
+  badge_number: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type ViolationStatus = 'issued' | 'paid' | 'disputed' | 'voided';
+
+export interface Violation {
+  id: string;
+  ticket_number: string;
+  license_plate: string;
+  state_province: string;
+  issued_by: string; // enforcement officer ID
+  violation_type: string;
+  violation_reason: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  fine_amount?: number;
+  evidence_photo_urls?: string; // JSON array of photo URLs
+  notes?: string;
+  status: ViolationStatus;
+  issued_at: Date;
+  voided_at?: Date;
+  voided_reason?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Warning {
+  id: string;
+  warning_number: string;
+  license_plate: string;
+  state_province: string;
+  issued_by: string; // enforcement officer ID
+  warning_type: string;
+  warning_reason: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  notes?: string;
+  issued_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type EnforcementActivityType = 'scan' | 'ticket' | 'warning' | 'patrol' | 'shift_start' | 'shift_end';
+
+export interface EnforcementActivity {
+  id: string;
+  officer_id: string;
+  activity_type: EnforcementActivityType;
+  license_plate?: string;
+  state_province?: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  result?: string; // valid, expired, unauthorized, no_permit, etc.
+  notes?: string;
+  performed_at: Date;
+  created_at: Date;
+}
+
+export interface ShiftReport {
+  id: string;
+  report_number: string;
+  officer_id: string;
+  shift_date: Date;
+  shift_start_time?: Date;
+  shift_end_time?: Date;
+  total_scans: number;
+  total_tickets: number;
+  total_warnings: number;
+  total_violations_found: number;
+  patrol_areas?: string; // JSON array of areas covered
+  incidents?: string; // JSON array of incident notes
+  summary?: string;
+  submitted_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface OfflineAction {
+  id: string;
+  officer_id: string;
+  action_type: string; // ticket, warning, scan
+  action_data: string; // JSON data for the action
+  performed_at: Date;
+  synced_at?: Date;
+  is_synced: boolean;
+  created_at: Date;
+}
+
+// Enhanced license plate lookup with enforcement context
+export interface EnforcementLookupResult extends LicensePlateLookupResult {
+  enforcement_context: {
+    recent_violations: Violation[];
+    recent_warnings: Warning[];
+    is_repeat_offender: boolean;
+    violation_count_30_days: number;
+    last_violation_date?: Date;
+    grace_period_active: boolean;
+    grace_period_expires?: Date;
+  };
+  current_status: 'authorized' | 'expired' | 'no_permit' | 'grace_period' | 'violation';
+  recommended_action: 'none' | 'warning' | 'ticket' | 'verify_manually';
+}
+
+// Input types for enforcement API requests
+export interface CreateEnforcementOfficerInput {
+  badge_number: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+}
+
+export interface CreateViolationInput {
+  license_plate: string;
+  state_province: string;
+  issued_by: string;
+  violation_type: string;
+  violation_reason: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  fine_amount?: number;
+  evidence_photo_urls?: string[];
+  notes?: string;
+}
+
+export interface CreateWarningInput {
+  license_plate: string;
+  state_province: string;
+  issued_by: string;
+  warning_type: string;
+  warning_reason: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  notes?: string;
+}
+
+export interface CreateEnforcementActivityInput {
+  officer_id: string;
+  activity_type: EnforcementActivityType;
+  license_plate?: string;
+  state_province?: string;
+  location?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  result?: string;
+  notes?: string;
+}
+
+export interface CreateShiftReportInput {
+  officer_id: string;
+  shift_date: string;
+  shift_start_time?: string;
+  shift_end_time?: string;
+  total_scans?: number;
+  total_tickets?: number;
+  total_warnings?: number;
+  total_violations_found?: number;
+  patrol_areas?: string[];
+  incidents?: string[];
+  summary?: string;
+}
+
+export interface VoidViolationInput {
+  voided_reason: string;
+}
+
+// Filter types for enforcement queries
+export interface EnforcementFilters {
+  officer_id?: string;
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+  license_plate?: string;
+  state_province?: string;
+  status?: ViolationStatus;
+  violation_type?: string;
+}
+
+export interface ShiftFilters {
+  officer_id?: string;
+  shift_date?: string;
+  start_date?: string;
+  end_date?: string;
+}
