@@ -9,7 +9,14 @@
 	"compatibility_date": "2025-07-15",
 	"observability": {
 		"enabled": true
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "parking-permits-db",
+			"database_id": "2ed67dad-d2b2-47c6-9b32-b817cd1475cb"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
