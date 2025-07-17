@@ -2,10 +2,10 @@
 -- This file contains sample data to verify the database structure
 
 -- Test tenants
-INSERT INTO tenants (id, email, first_name, last_name, unit_number, phone, building_code) VALUES
-('tenant-001', 'john.doe@example.com', 'John', 'Doe', '101', '555-0101', 'A'),
-('tenant-002', 'jane.smith@example.com', 'Jane', 'Smith', '202', '555-0202', 'B'),
-('tenant-003', 'bob.wilson@example.com', 'Bob', 'Wilson', '303', '555-0303', 'C');
+INSERT INTO tenants (id, email, first_name, last_name, unit_number, phone, building_code, full_address) VALUES
+('tenant-001', 'john.doe@example.com', 'John', 'Doe', '101', '555-0101', 'A', '123 Main Street, Apt 101, Anytown, CA 90210'),
+('tenant-002', 'jane.smith@example.com', 'Jane', 'Smith', '202', '555-0202', 'B', '456 Oak Avenue, Unit 202, Anytown, CA 90210'),
+('tenant-003', 'bob.wilson@example.com', 'Bob', 'Wilson', '303', '555-0303', 'C', '789 Pine Street, Unit 303, Anytown, CA 90210');
 
 -- Test vehicles
 INSERT INTO vehicles (id, tenant_id, license_plate, make, model, year, color, state_province, is_primary) VALUES

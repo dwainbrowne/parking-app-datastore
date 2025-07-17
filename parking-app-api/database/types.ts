@@ -11,6 +11,7 @@ export interface Tenant {
   last_name: string;
   unit_number: string;
   building_code?: string;
+	full_address?: string;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
@@ -43,7 +44,7 @@ export interface PermitType {
   updated_at: Date;
 }
 
-export type PermitRequestStatus = 
+export type PermitRequestStatus =
   | 'pending'
   | 'under_review'
   | 'approved'
@@ -141,6 +142,7 @@ export interface CreateTenantInput {
   last_name: string;
   unit_number: string;
   building_code?: string;
+	full_address?: string;
 }
 
 export interface CreateVehicleInput {
@@ -182,6 +184,34 @@ export interface CreatePermitInput {
   valid_until: Date;
   qr_code?: string;
   digital_permit_url?: string;
+}
+
+// Centralized permit request - handles tenant, vehicle, and permit creation
+export interface CreateCentralizedPermitRequestInput {
+	// Tenant information
+	first_name: string;
+	last_name: string;
+	email: string;
+	phone?: string;
+	unit_number: string;
+	building_code?: string;
+	full_address?: string;
+
+	// Vehicle information
+	license_plate: string;
+	make: string;
+	model: string;
+	year?: number;
+	color: string;
+	state_province: string;
+	country?: string;
+
+	// Permit request information
+	permit_type_id?: string; // Optional, defaults to 'guest'
+	requested_start_date?: string; // Optional, defaults to today
+	requested_end_date?: string; // Optional, defaults to today + 24 hours
+	notes?: string;
+	priority?: number;
 }
 
 // Utility types

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     last_name TEXT NOT NULL,
     unit_number TEXT NOT NULL,
     building_code TEXT,
+    full_address TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

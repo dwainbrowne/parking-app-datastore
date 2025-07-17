@@ -1,0 +1,247 @@
+# Parking Permit API - Centralized Permit Request Testing
+# This file tests the centralized API endpoint that creates tenant, vehicle, and permit in one request
+
+@baseUrl = http://localhost:8787
+
+### Health Check
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### 1. Submit Centralized Permit Request - Guest Permit (Auto-approved)
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "john.doe@email.com",
+  "phone": "555-123-4567",
+  "unit_number": "101",
+  "building_code": "A",
+  "full_address": "123 Main Street, Apt 101, Anytown, CA 90210",
+  "license_plate": "ABC123",
+  "make": "Toyota",
+  "model": "Camry",
+  "year": 2020,
+  "color": "Blue",
+  "state_province": "CA",
+  "country": "US",
+  "permit_type_id": "guest",
+  "notes": "Guest visiting for the weekend"
+}
+
+### 2. Submit Centralized Permit Request - Temporary Permit (Requires Approval)
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "email": "jane.smith@email.com",
+  "phone": "555-987-6543",
+  "unit_number": "205",
+  "building_code": "B",
+  "full_address": "456 Oak Avenue, Unit 205, Anytown, CA 90210",
+  "license_plate": "XYZ789",
+  "make": "Honda",
+  "model": "Civic",
+  "year": 2019,
+  "color": "Red",
+  "state_province": "CA",
+  "country": "US",
+  "permit_type_id": "temporary",
+  "requested_start_date": "2025-07-18",
+  "requested_end_date": "2025-08-18",
+  "notes": "Temporary permit for visiting family member",
+  "priority": 2
+}
+
+### 3. Submit Centralized Permit Request - Minimal Required Fields Only
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Bob",
+  "last_name": "Johnson",
+  "email": "bob.johnson@email.com",
+  "license_plate": "DEF456",
+  "make": "Ford",
+  "model": "Focus",
+  "color": "White",
+  "state_province": "CA"
+}
+
+### 4. Submit Centralized Permit Request - Update Existing Tenant
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "john.doe@email.com",
+  "phone": "555-123-4567",
+  "unit_number": "101",
+  "full_address": "123 Main Street, Apt 101, Anytown, CA 90210 (Updated)",
+  "license_plate": "GHI789",
+  "make": "Nissan",
+  "model": "Altima",
+  "year": 2021,
+  "color": "Silver",
+  "state_province": "CA",
+  "permit_type_id": "guest",
+  "notes": "Second vehicle for existing tenant"
+}
+
+### 5. Test Error Handling - Invalid Email
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Test",
+  "last_name": "User",
+  "email": "invalid-email",
+  "license_plate": "TEST123",
+  "make": "Test",
+  "model": "Car",
+  "color": "Black",
+  "state_province": "CA"
+}
+
+### 6. Test Error Handling - Missing Required Fields
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Test",
+  "email": "test@email.com"
+}
+
+### 7. Test Error Handling - Invalid License Plate
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Test",
+  "last_name": "User",
+  "email": "test2@email.com",
+  "license_plate": "TOOLONG123456789",
+  "make": "Test",
+  "model": "Car",
+  "color": "Black",
+  "state_province": "CA"
+}
+
+### 8. Test Error Handling - Invalid Date Range
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Test",
+  "last_name": "User",
+  "email": "test3@email.com",
+  "license_plate": "TEST789",
+  "make": "Test",
+  "model": "Car",
+  "color": "Black",
+  "state_province": "CA",
+  "requested_start_date": "2025-07-20",
+  "requested_end_date": "2025-07-19"
+}
+
+### 9. Get Available Permit Types
+GET {{baseUrl}}/api/permit-types
+Content-Type: application/json
+
+### 10. License Plate Lookup - Should find the registered vehicles
+GET {{baseUrl}}/api/license-plates/ABC123?state=CA
+Content-Type: application/json
+
+### 11. Get Tenant by ID (Replace with actual ID from response)
+GET {{baseUrl}}/api/tenants/REPLACE_WITH_ACTUAL_TENANT_ID
+Content-Type: application/json
+
+### 12. Get Tenant's Vehicles (Replace with actual tenant ID)
+GET {{baseUrl}}/api/tenants/REPLACE_WITH_ACTUAL_TENANT_ID/vehicles
+Content-Type: application/json
+
+### 13. Get Tenant's Permit Requests (Replace with actual tenant ID)
+GET {{baseUrl}}/api/tenants/REPLACE_WITH_ACTUAL_TENANT_ID/permit-requests
+Content-Type: application/json
+
+### 14. Get All Permit Requests (Admin view)
+GET {{baseUrl}}/api/permit-requests
+Content-Type: application/json
+
+### 15. Get Permit Requests by Status
+GET {{baseUrl}}/api/permit-requests?status=pending
+Content-Type: application/json
+
+### 16. Get Permit Requests by Status - Approved
+GET {{baseUrl}}/api/permit-requests?status=approved
+Content-Type: application/json
+
+### 17. Get Permit Requests with Pagination
+GET {{baseUrl}}/api/permit-requests?page=1&limit=5
+Content-Type: application/json
+
+### 18. Comprehensive Form Test - All Fields
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Maria",
+  "last_name": "Garcia",
+  "email": "maria.garcia@email.com",
+  "phone": "555-234-5678",
+  "unit_number": "304",
+  "building_code": "C",
+  "full_address": "789 Pine Street, Unit 304, Anytown, CA 90210",
+  "license_plate": "MRG2025",
+  "make": "Chevrolet",
+  "model": "Malibu",
+  "year": 2022,
+  "color": "Black",
+  "state_province": "CA",
+  "country": "US",
+  "permit_type_id": "guest",
+  "requested_start_date": "2025-07-18",
+  "requested_end_date": "2025-07-19",
+  "notes": "Family visiting for dinner",
+  "priority": 1
+}
+
+### 19. Test Same License Plate Different State
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Mike",
+  "last_name": "Wilson",
+  "email": "mike.wilson@email.com",
+  "phone": "555-345-6789",
+  "unit_number": "102",
+  "full_address": "321 Elm Street, Unit 102, Anytown, NV 89101",
+  "license_plate": "ABC123",
+  "make": "BMW",
+  "model": "X5",
+  "year": 2023,
+  "color": "Black",
+  "state_province": "NV",
+  "permit_type_id": "guest"
+}
+
+### 20. Test Default Values (No dates specified)
+POST {{baseUrl}}/api/submit-permit-request
+Content-Type: application/json
+
+{
+  "first_name": "Sarah",
+  "last_name": "Davis",
+  "email": "sarah.davis@email.com",
+  "license_plate": "DEFAULT1",
+  "make": "Volkswagen",
+  "model": "Jetta",
+  "color": "Green",
+  "state_province": "CA",
+  "unit_number": "501"
+}

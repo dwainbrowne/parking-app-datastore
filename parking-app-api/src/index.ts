@@ -13,6 +13,7 @@ import type {
 	CreateTenantInput,
 	CreateVehicleInput,
 	CreatePermitRequestInput,
+	CreateCentralizedPermitRequestInput,
 	LicensePlateLookupResult,
 	PermitRequestStatus
 } from '../database/types';
@@ -61,6 +62,339 @@ app.get('/health', (c) => {
 });
 
 // =====================================================
+// CENTRALIZED PERMIT REQUEST (Form Submission)
+// =====================================================
+
+// Complete permit request - creates tenant, vehicle, and permit request in one go
+app.post('/api/submit-permit-request', async (c) => {
+	try {
+		const body = await c.req.json() as CreateCentralizedPermitRequestInput;
+
+		// Validate required fields
+		if (!body.first_name || !body.last_name || !body.email || !body.license_plate || !body.make || !body.model || !body.color || !body.state_province) {
+			throw new HTTPException(400, {
+				message: 'Missing required fields: first_name, last_name, email, license_plate, make, model, color, state_province'
+			});
+		}
+
+		// Validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(body.email)) {
+			throw new HTTPException(400, { message: 'Invalid email format' });
+		}
+
+		// Validate license plate format
+		const plate = body.license_plate.toUpperCase();
+		const state = body.state_province.toUpperCase();
+		if (!validateLicensePlate(plate, state)) {
+			throw new HTTPException(400, { message: 'Invalid license plate format' });
+		}
+
+		// Set default values
+		const permitTypeId = body.permit_type_id || 'guest';
+		const requestedStartDate = body.requested_start_date ? new Date(body.requested_start_date) : new Date();
+		const requestedEndDate = body.requested_end_date ? new Date(body.requested_end_date) : new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+		// Validate dates
+		if (requestedStartDate < new Date(Date.now() - 24 * 60 * 60 * 1000)) { // Allow requests up to 24 hours in the past
+			throw new HTTPException(400, { message: 'Start date cannot be more than 24 hours in the past' });
+		}
+
+		if (requestedEndDate <= requestedStartDate) {
+			throw new HTTPException(400, { message: 'End date must be after start date' });
+		}
+
+		// Check if permit type exists
+		const permitType = await c.env.DB.prepare(`
+			SELECT id FROM permit_types WHERE id = ? AND is_active = TRUE
+		`).bind(permitTypeId).first();
+
+		if (!permitType) {
+			throw new HTTPException(404, { message: 'Permit type not found' });
+		}
+
+		// Begin transaction-like operations
+		let tenantId: string;
+		let vehicleId: string;
+		let permitRequestId: string;
+
+		// Step 1: Check if tenant exists, if not create
+		const existingTenant = await c.env.DB.prepare(`
+			SELECT id FROM tenants WHERE email = ? AND is_active = TRUE
+		`).bind(body.email.toLowerCase()).first();
+
+		if (existingTenant) {
+			tenantId = existingTenant.id as string;
+
+			// Update tenant information if provided
+			if (body.full_address || body.phone || body.unit_number) {
+				await c.env.DB.prepare(`
+					UPDATE tenants SET 
+						phone = COALESCE(?, phone),
+						full_address = COALESCE(?, full_address),
+						unit_number = COALESCE(?, unit_number),
+						updated_at = CURRENT_TIMESTAMP
+					WHERE id = ?
+				`).bind(body.phone || null, body.full_address || null, body.unit_number || null, tenantId).run();
+			}
+		} else {
+			// Create new tenant
+			tenantId = generateId();
+			const tenant: Tenant = {
+				id: tenantId,
+				email: body.email.toLowerCase(),
+				phone: body.phone || undefined,
+				first_name: body.first_name,
+				last_name: body.last_name,
+				unit_number: body.unit_number || '', // Default empty if not provided
+				building_code: body.building_code || undefined,
+				full_address: body.full_address || undefined,
+				is_active: true,
+				created_at: new Date(),
+				updated_at: new Date()
+			};
+
+			const tenantResult = await c.env.DB.prepare(`
+				INSERT INTO tenants (id, email, phone, first_name, last_name, unit_number, building_code, full_address, is_active)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`).bind(
+				tenant.id,
+				tenant.email,
+				tenant.phone || null,
+				tenant.first_name,
+				tenant.last_name,
+				tenant.unit_number,
+				tenant.building_code || null,
+				tenant.full_address || null,
+				tenant.is_active
+			).run();
+
+			if (!tenantResult.success) {
+				throw new HTTPException(500, { message: 'Failed to create tenant' });
+			}
+		}
+
+		// Step 2: Check if vehicle exists, if not create
+		const existingVehicle = await c.env.DB.prepare(`
+			SELECT id FROM vehicles WHERE license_plate = ? AND state_province = ? AND tenant_id = ?
+		`).bind(plate, state, tenantId).first();
+
+		if (existingVehicle) {
+			vehicleId = existingVehicle.id as string;
+
+			// Update vehicle information
+			await c.env.DB.prepare(`
+				UPDATE vehicles SET 
+					make = ?, 
+					model = ?, 
+					year = ?, 
+					color = ?, 
+					country = ?,
+					updated_at = CURRENT_TIMESTAMP
+				WHERE id = ?
+			`).bind(
+				body.make,
+				body.model,
+				body.year || null,
+				body.color,
+				body.country || 'US',
+				vehicleId
+			).run();
+		} else {
+			// Create new vehicle
+			vehicleId = generateId();
+			const vehicle: Vehicle = {
+				id: vehicleId,
+				tenant_id: tenantId,
+				license_plate: plate,
+				make: body.make,
+				model: body.model,
+				year: body.year || undefined,
+				color: body.color,
+				state_province: state,
+				country: body.country || 'US',
+				is_primary: false,
+				created_at: new Date(),
+				updated_at: new Date()
+			};
+
+			const vehicleResult = await c.env.DB.prepare(`
+				INSERT INTO vehicles (id, tenant_id, license_plate, make, model, year, color, state_province, country, is_primary)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`).bind(
+				vehicle.id,
+				vehicle.tenant_id,
+				vehicle.license_plate,
+				vehicle.make,
+				vehicle.model,
+				vehicle.year || null,
+				vehicle.color,
+				vehicle.state_province,
+				vehicle.country,
+				vehicle.is_primary
+			).run();
+
+			if (!vehicleResult.success) {
+				throw new HTTPException(500, { message: 'Failed to create vehicle' });
+			}
+		}
+
+		// Step 3: Create permit request
+		permitRequestId = generateId();
+		const permitRequest: PermitRequest = {
+			id: permitRequestId,
+			request_number: '', // Will be auto-generated by trigger
+			tenant_id: tenantId,
+			vehicle_id: vehicleId,
+			permit_type_id: permitTypeId,
+			requested_start_date: requestedStartDate,
+			requested_end_date: requestedEndDate,
+			status: 'pending',
+			priority: body.priority || 1,
+			notes: body.notes || undefined,
+			internal_notes: undefined,
+			submitted_at: new Date(),
+			reviewed_at: undefined,
+			reviewed_by: undefined,
+			approved_at: undefined,
+			rejected_at: undefined,
+			rejection_reason: undefined,
+			created_at: new Date(),
+			updated_at: new Date()
+		};
+
+		const permitRequestResult = await c.env.DB.prepare(`
+			INSERT INTO permit_requests (id, tenant_id, vehicle_id, permit_type_id, requested_start_date, requested_end_date, status, priority, notes)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`).bind(
+			permitRequest.id,
+			permitRequest.tenant_id,
+			permitRequest.vehicle_id,
+			permitRequest.permit_type_id,
+			permitRequest.requested_start_date.toISOString().split('T')[0],
+			permitRequest.requested_end_date.toISOString().split('T')[0],
+			permitRequest.status,
+			permitRequest.priority,
+			permitRequest.notes || null
+		).run();
+
+		if (!permitRequestResult.success) {
+			throw new HTTPException(500, { message: 'Failed to create permit request' });
+		}
+
+		// Step 4: For guest permits, auto-approve and create permit
+		if (permitTypeId === 'guest') {
+			// Update permit request to approved
+			await c.env.DB.prepare(`
+				UPDATE permit_requests SET 
+					status = 'approved',
+					approved_at = CURRENT_TIMESTAMP,
+					reviewed_at = CURRENT_TIMESTAMP
+				WHERE id = ?
+			`).bind(permitRequestId).run();
+
+			// Create the permit
+			const permitId = generateId();
+			const permit: Permit = {
+				id: permitId,
+				permit_number: '', // Will be auto-generated by trigger
+				permit_request_id: permitRequestId,
+				tenant_id: tenantId,
+				vehicle_id: vehicleId,
+				permit_type_id: permitTypeId,
+				valid_from: requestedStartDate,
+				valid_until: requestedEndDate,
+				qr_code: undefined,
+				digital_permit_url: undefined,
+				is_active: true,
+				issued_at: new Date(),
+				revoked_at: undefined,
+				revoked_reason: undefined,
+				created_at: new Date(),
+				updated_at: new Date()
+			};
+
+			const permitResult = await c.env.DB.prepare(`
+				INSERT INTO permits (id, permit_request_id, tenant_id, vehicle_id, permit_type_id, valid_from, valid_until, is_active)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`).bind(
+				permit.id,
+				permit.permit_request_id,
+				permit.tenant_id,
+				permit.vehicle_id,
+				permit.permit_type_id,
+				permit.valid_from.toISOString().split('T')[0],
+				permit.valid_until.toISOString().split('T')[0],
+				permit.is_active
+			).run();
+
+			if (!permitResult.success) {
+				throw new HTTPException(500, { message: 'Failed to create permit' });
+			}
+		}
+
+		// Fetch the complete result with all related data
+		const completeResult = await c.env.DB.prepare(`
+			SELECT 
+				pr.*,
+				t.first_name || ' ' || t.last_name as tenant_name,
+				t.email as tenant_email,
+				t.phone as tenant_phone,
+				t.unit_number,
+				t.full_address,
+				v.license_plate,
+				v.make,
+				v.model,
+				v.year,
+				v.color,
+				v.state_province,
+				pt.name as permit_type_name,
+				pt.description as permit_type_description,
+				p.permit_number,
+				p.valid_from,
+				p.valid_until,
+				p.is_active as permit_is_active
+			FROM permit_requests pr
+			JOIN tenants t ON pr.tenant_id = t.id
+			JOIN vehicles v ON pr.vehicle_id = v.id
+			JOIN permit_types pt ON pr.permit_type_id = pt.id
+			LEFT JOIN permits p ON pr.id = p.permit_request_id
+			WHERE pr.id = ?
+		`).bind(permitRequestId).first();
+
+		return c.json({
+			success: true,
+			data: {
+				permit_request: completeResult,
+				tenant_id: tenantId,
+				vehicle_id: vehicleId,
+				permit_request_id: permitRequestId,
+				auto_approved: permitTypeId === 'guest'
+			},
+			message: permitTypeId === 'guest'
+				? 'Guest permit request submitted and automatically approved!'
+				: 'Permit request submitted successfully and is pending review'
+		}, 201);
+
+	} catch (error) {
+		if (error instanceof HTTPException) throw error;
+
+		// Handle unique constraint violations
+		if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+			if (error.message.includes('email')) {
+				throw new HTTPException(409, { message: 'Email already exists' });
+			}
+			if (error.message.includes('license_plate')) {
+				throw new HTTPException(409, { message: 'License plate already registered for this state' });
+			}
+		}
+
+		console.error('Centralized permit request error:', error);
+		throw new HTTPException(500, { message: 'Internal server error' });
+	}
+});
+
+// =====================================================
 // TENANT MANAGEMENT
 // =====================================================
 
@@ -88,22 +422,24 @@ app.post('/api/tenants', async (c) => {
 			last_name: body.last_name,
 			unit_number: body.unit_number,
 			building_code: body.building_code || undefined,
+			full_address: body.full_address || undefined,
 			is_active: true,
 			created_at: new Date(),
 			updated_at: new Date()
 		};
 
 		const result = await c.env.DB.prepare(`
-      INSERT INTO tenants (id, email, phone, first_name, last_name, unit_number, building_code, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tenants (id, email, phone, first_name, last_name, unit_number, building_code, full_address, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
 			tenant.id,
 			tenant.email,
-			tenant.phone,
+		tenant.phone || null,
 			tenant.first_name,
 			tenant.last_name,
 			tenant.unit_number,
-			tenant.building_code,
+		tenant.building_code || null,
+		tenant.full_address || null,
 			tenant.is_active
 		).run();
 
@@ -209,7 +545,7 @@ app.post('/api/tenants/:tenantId/vehicles', async (c) => {
 			vehicle.license_plate,
 			vehicle.make,
 			vehicle.model,
-			vehicle.year,
+		vehicle.year || null,
 			vehicle.color,
 			vehicle.state_province,
 			vehicle.country,
@@ -343,7 +679,7 @@ app.post('/api/permit-requests', async (c) => {
 			permitRequest.requested_end_date.toISOString().split('T')[0],
 			permitRequest.status,
 			permitRequest.priority,
-			permitRequest.notes
+		permitRequest.notes || null
 		).run();
 
 		if (!result.success) {
